@@ -2,18 +2,23 @@
  * A4 简历生成：从画布数据抽取文字信息套入独立简历模板
  * 覆盖验收标准：AC-6.6
  */
+import { pickText } from './i18n.js'
+import { flattenPages } from './pages.js'
 
-/** 从站点数据抽取简历结构化信息 */
+/** 从站点数据抽取简历结构化信息（兼容 v1 视图与 v2 契约输入） */
 export function extractResumeData(site) {
-  const els = site?.elements ?? []
+  const locale = site?.locale ?? 'zh'
+  const els = Array.isArray(site?.elements)
+    ? site.elements
+    : flattenPages(site?.draft ?? site?.published ?? {}, locale).elements
   const texts = els.filter((e) => e.type === 'text' && e.props?.content)
 
   // 姓名 = 字号最大的文本；其余长文本作为简介段落
   const sorted = [...texts].sort((a, b) => (b.props.fontSize ?? 0) - (a.props.fontSize ?? 0))
-  const name = sorted[0]?.props.content?.trim() || '姓名'
+  const name = pickText(sorted[0]?.props.content, locale).trim() || '姓名'
   const intro = texts
     .filter((t) => t !== sorted[0])
-    .map((t) => t.props.content.trim())
+    .map((t) => pickText(t.props.content, locale).trim())
     .filter((c) => c.length > 10)
     .join('\n')
 
@@ -23,7 +28,7 @@ export function extractResumeData(site) {
 
   const links = els
     .filter((e) => e.type === 'link' && e.props?.url)
-    .map((e) => ({ title: e.props.title || e.props.url, url: e.props.url }))
+    .map((e) => ({ title: pickText(e.props.title, locale) || e.props.url, url: e.props.url }))
 
   const photos = els
     .flatMap((e) => (e.type === 'gallery' ? (e.props?.images ?? []) : e.type === 'image' && e.props?.src ? [e.props] : []))

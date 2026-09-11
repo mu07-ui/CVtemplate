@@ -9,10 +9,14 @@ import {
   createSkillTag,
   createGallery,
   createDecoration,
+  createTimeline,
+  createSkillMatrix,
+  createHonors,
+  createContactCard,
   validateElement
 } from '../src/core/schema.js'
 
-// 覆盖验收标准：AC-3.1 ~ AC-3.9
+// 覆盖验收标准：AC-3.1 ~ AC-3.9、AC-16.1
 
 describe('AC-3.1 元素工厂基础', () => {
   it('每种类型都能创建元素，包含 id / type / 位置(%) / 尺寸(%) / 层级', () => {
@@ -143,5 +147,59 @@ describe('AC-3.9 元素校验', () => {
     const el = createLink({ title: '坏链接', url: 'not a url' })
     const result = validateElement(el)
     expect(result.valid).toBe(false)
+  })
+})
+
+describe('AC-16.1 四类结构化元素纳入工厂与校验', () => {
+  it('ELEMENT_TYPES 扩展为 11 类（含 timeline/skillMatrix/honors/contactCard）', () => {
+    for (const t of ['timeline', 'skillMatrix', 'honors', 'contactCard']) {
+      expect(ELEMENT_TYPES).toContain(t)
+    }
+    expect(ELEMENT_TYPES).toHaveLength(11)
+  })
+
+  it('时间线：items 含 date/title/desc', () => {
+    const el = createTimeline({
+      items: [{ date: '2024', title: { zh: '入职', en: 'Joined' }, desc: { zh: '前端工程师', en: '' } }],
+    })
+    expect(el.type).toBe('timeline')
+    expect(el.props.items).toHaveLength(1)
+    expect(el.props.items[0].date).toBe('2024')
+    expect(validateElement(el).valid).toBe(true)
+  })
+
+  it('技能矩阵：items 含 name/level（0~100）', () => {
+    const el = createSkillMatrix({ items: [{ name: 'Vue', level: 90 }, { name: '设计', level: 70 }] })
+    expect(el.props.items[0].level).toBe(90)
+    expect(validateElement(el).valid).toBe(true)
+  })
+
+  it('荣誉证书：items 含 title/issuer/date/link', () => {
+    const el = createHonors({
+      items: [{ title: { zh: '优秀作品奖', en: 'Award' }, issuer: '组委会', date: '2025', link: 'https://x.com' }],
+    })
+    expect(el.props.items[0].issuer).toBe('组委会')
+    expect(validateElement(el).valid).toBe(true)
+  })
+
+  it('联系卡片：items 含 label/value/href（mailto 合法）', () => {
+    const el = createContactCard({
+      items: [{ label: { zh: '邮箱', en: 'Email' }, value: 'me@x.com', href: 'mailto:me@x.com' }],
+    })
+    expect(el.props.items[0].href).toBe('mailto:me@x.com')
+    expect(validateElement(el).valid).toBe(true)
+  })
+
+  it('四类元素含元素级 name/visible/locked 字段（图层面板用）', () => {
+    for (const c of [createTimeline(), createSkillMatrix(), createHonors(), createContactCard()]) {
+      expect(c).toHaveProperty('name')
+      expect(c.visible).toBe(true)
+      expect(c.locked).toBe(false)
+    }
+  })
+
+  it('联系卡片非法 href 校验失败', () => {
+    const el = createContactCard({ items: [{ label: 'x', value: 'y', href: 'javascript:alert(1)' }] })
+    expect(validateElement(el).valid).toBe(false)
   })
 })

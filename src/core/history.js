@@ -37,5 +37,6 @@ export function createHistory() {
     },
     canUndo: () => ptr > 0,
     canRedo: () => ptr < states.length - 1,
+    reset: () => { states = []; ptr = -1 },
   }
 }

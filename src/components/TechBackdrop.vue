@@ -1,21 +1,175 @@
 <template>
   <div class="tech-backdrop" aria-hidden="true">
+    <canvas ref="canvas" class="tb-canvas"></canvas>
     <div class="tb-grid"></div>
-    <div class="tb-net"></div>
-    <div class="tb-vignette"></div>
+    <div class="tb-vig"></div>
   </div>
 </template>
 
 <script setup>
-// 科技氛围背景层（AC-4.5）：细网格呼吸 + 星座连线慢漂移 + 每屏暗角
-// 纯 CSS 实现，随画布等比平铺（每 100vh 一组），无 DOM 副作用
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { THEMES } from '../core/theme.js'
+import { createParticles, stepParticles, effectiveLevel } from '../core/particles.js'
+import { site } from '../store/site.js'
+
+const props = defineProps({
+  themeId: { type: String, default: 'business' },
+  motionLevel: { type: String, default: 'standard' },
+})
+
+const canvas = ref(null)
+let ctx = null
+let particles = []
+let rafId = null
+let lastTime = 0
+let paused = false
+let cleanupFn = null
+
+const theme = () => THEMES[props.themeId] ?? THEMES.business
+const scene = () => theme().particleScene
+
+function level() {
+  return effectiveLevel(props.motionLevel, navigator.userAgent)
+}
+
+function resize() {
+  const c = canvas.value
+  if (!c) return
+  const rect = c.parentElement.getBoundingClientRect()
+  c.width = rect.width
+  c.height = rect.height
+  particles = createParticles(scene(), level(), c.width, c.height)
+}
+
+function render(ts) {
+  if (paused || !ctx) { rafId = null; return }
+  const dt = lastTime ? Math.min(0.05, (ts - lastTime) / 1000) : 0.016
+  lastTime = ts
+
+  stepParticles(particles, scene(), level(), dt, canvas.value.width, canvas.value.height)
+
+  const w = canvas.value.width
+  const h = canvas.value.height
+  ctx.clearRect(0, 0, w, h)
+
+  const s = scene()
+  const t = theme()
+  const color = t.primary
+
+  if (s === 'starfield') {
+    ctx.fillStyle = color
+    for (const p of particles) {
+      ctx.globalAlpha = 0.5 + (p.r / 3) * 0.5
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    // 连线
+    ctx.globalAlpha = 0.15
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x
+        const dy = particles[i].y - particles[j].y
+        const d = Math.sqrt(dx * dx + dy * dy)
+        if (d < particles[i].linkRadius) {
+          ctx.globalAlpha = (1 - d / particles[i].linkRadius) * 0.2
+          ctx.beginPath()
+          ctx.moveTo(particles[i].x, particles[i].y)
+          ctx.lineTo(particles[j].x, particles[j].y)
+          ctx.stroke()
+        }
+      }
+    }
+  } else if (s === 'gridDrift') {
+    ctx.fillStyle = color
+    ctx.globalAlpha = 0.25
+    for (const p of particles) {
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    // 连线网格
+    ctx.globalAlpha = 0.08
+    ctx.strokeStyle = color
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        if (Math.abs(particles[i].cellX - particles[j].cellX) <= 1 &&
+            Math.abs(particles[i].cellY - particles[j].cellY) <= 1) {
+          ctx.beginPath()
+          ctx.moveTo(particles[i].x, particles[i].y)
+          ctx.lineTo(particles[j].x, particles[j].y)
+          ctx.stroke()
+        }
+      }
+    }
+  } else if (s === 'lightOrb') {
+    for (const p of particles) {
+      const pulse = 0.5 + Math.sin(p.phase) * 0.3
+      const r = Math.max(1, p.r * pulse)
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r)
+      grad.addColorStop(0, color + '40')
+      grad.addColorStop(1, color + '00')
+      ctx.fillStyle = grad
+      ctx.globalAlpha = 0.35
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  ctx.globalAlpha = 1
+  rafId = requestAnimationFrame(render)
+}
+
+function start() {
+  if (level() === 'quiet') return // 节能档不渲染粒子
+  if (rafId) return
+  lastTime = 0
+  rafId = requestAnimationFrame(render)
+}
+
+function stop() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null }
+}
+
+onMounted(() => {
+  ctx = canvas.value?.getContext('2d')
+  resize()
+  start()
+
+  const onVis = () => {
+    if (document.hidden) { paused = true; stop() }
+    else { paused = false; start() }
+  }
+  document.addEventListener('visibilitychange', onVis)
+  window.addEventListener('resize', resize)
+
+  // 保存清理函数供 onBeforeUnmount 调用
+  cleanupFn = () => {
+    document.removeEventListener('visibilitychange', onVis)
+    window.removeEventListener('resize', resize)
+  }
+})
+
+onBeforeUnmount(() => {
+  stop()
+  cleanupFn?.()
+})
+
+watch(() => [props.themeId, props.motionLevel], () => {
+  resize()
+  stop()
+  start()
+})
 </script>
 
 <style scoped>
 .tech-backdrop { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.tb-grid, .tb-net, .tb-vignette { position: absolute; inset: 0; }
+.tb-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tb-grid, .tb-vig { position: absolute; inset: 0; }
 
-/* 细网格：低透明度呼吸 */
 .tb-grid {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
@@ -24,16 +178,7 @@
   animation: tb-breathe 14s ease-in-out infinite alternate;
 }
 
-/* 星座节点连线：每 100vh 平铺一组，缓慢上漂 */
-.tb-net {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 900'%3E%3Cg stroke='rgba(255,255,255,0.13)' stroke-width='1' fill='none'%3E%3Cpath d='M60 140L300 260L560 180'/%3E%3Cpath d='M1100 700L1320 560L1380 760'/%3E%3Cpath d='M180 720L420 830L640 760'/%3E%3Cpath d='M900 150L1120 90L1300 200'/%3E%3C/g%3E%3Cg fill='rgba(125,211,252,0.4)'%3E%3Ccircle cx='60' cy='140' r='3'/%3E%3Ccircle cx='300' cy='260' r='2.5'/%3E%3Ccircle cx='560' cy='180' r='2'/%3E%3Ccircle cx='1100' cy='700' r='3'/%3E%3Ccircle cx='1320' cy='560' r='2.5'/%3E%3Ccircle cx='1380' cy='760' r='2'/%3E%3Ccircle cx='180' cy='720' r='2.5'/%3E%3Ccircle cx='420' cy='830' r='2'/%3E%3Ccircle cx='640' cy='760' r='3'/%3E%3Ccircle cx='900' cy='150' r='2.5'/%3E%3Ccircle cx='1120' cy='90' r='2'/%3E%3Ccircle cx='1300' cy='200' r='3'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 100% 100vh;
-  background-repeat: repeat-y;
-  animation: tb-drift 90s linear infinite;
-}
-
-/* 暗角：每屏收拢视线，增强层次 */
-.tb-vignette {
+.tb-vig {
   background-image: radial-gradient(120% 65% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.38) 100%);
   background-size: 100% 100vh;
   background-repeat: repeat-y;
@@ -42,9 +187,5 @@
 @keyframes tb-breathe {
   from { opacity: 0.55; }
   to { opacity: 1; }
-}
-@keyframes tb-drift {
-  from { background-position: 0 0; }
-  to { background-position: 0 100vh; }
 }
 </style>

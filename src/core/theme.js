@@ -1,10 +1,11 @@
 /**
- * 主题系统：三套内置主题（官网级视觉：深色沉浸 + 光晕氛围）
- * 覆盖验收标准：AC-4.1 ~ AC-4.4
+ * 主题系统 v2：五套大跨度主题（官网级视觉）
+ * 覆盖验收标准：AC-4.2 ~ AC-4.4、AC-14.1 ~ AC-14.3
+ * 每套含完整 CSS 变量集 + 粒子场景 + 动效档位预设
  */
 
 export const THEMES = {
-  // 曜蓝商务：深藏青夜空 + 电光蓝 + 香槟金点缀（AC-4.1）
+  // 曜蓝商务：深藏青夜空 + 电光蓝 + 香槟金点缀
   business: {
     background: '#0a0f1e',
     foreground: '#e8edf7',
@@ -20,8 +21,10 @@ export const THEMES = {
       + ' linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),'
       + ' #0a0f1e',
     backdropSize: 'auto, auto, 56px 56px, 56px 56px, auto',
+    particleScene: 'starfield',
+    motionPreset: 'standard',
   },
-  // 星穹拟态：深空底 + 青紫极光 + 毛玻璃质感
+  // 星穹玻璃拟态：深空底 + 青紫极光 + 毛玻璃质感
   glass: {
     background: '#070b18',
     foreground: '#eaf2ff',
@@ -36,8 +39,45 @@ export const THEMES = {
       + ' radial-gradient(1000px 800px at 50% 110%, rgba(56, 189, 248, 0.14), transparent 60%),'
       + ' #070b18',
     backdropSize: 'auto, auto, auto, auto',
+    particleScene: 'lightOrb',
+    motionPreset: 'rich',
   },
-  // 霓虹像素：暗紫底 + 品红/电光青双色霓虹 + 扫描线
+  // 暗夜霓虹：纯黑底 + 品红/电光青双色霓虹 + 扫描线
+  neon: {
+    background: '#050008',
+    foreground: '#f0f4ff',
+    primary: '#ff2fb3',
+    accent: '#00f0ff',
+    radius: '8px',
+    shadow: '0 0 30px rgba(255, 47, 179, 0.4), 0 0 60px rgba(0, 240, 255, 0.2)',
+    font: "'Orbitron', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+    backdrop:
+      'radial-gradient(900px 600px at 90% 10%, rgba(255, 47, 179, 0.2), transparent 55%),'
+      + ' radial-gradient(800px 600px at 5% 90%, rgba(0, 240, 255, 0.16), transparent 55%),'
+      + ' repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 4px),'
+      + ' #050008',
+    backdropSize: 'auto, auto, auto, auto',
+    particleScene: 'gridDrift',
+    motionPreset: 'rich',
+  },
+  // 极简晨白：浅灰底 + 墨蓝 + 暖灰点缀，极致留白
+  morning: {
+    background: '#f7f8fa',
+    foreground: '#1a1f2e',
+    primary: '#2f54eb',
+    accent: '#8c9bab',
+    radius: '16px',
+    shadow: '0 2px 20px rgba(0, 0, 0, 0.08)',
+    font: "'PingFang SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif",
+    backdrop:
+      'radial-gradient(800px 500px at 100% 0%, rgba(47, 84, 235, 0.05), transparent 60%),'
+      + ' radial-gradient(700px 500px at 0% 100%, rgba(140, 155, 171, 0.06), transparent 55%),'
+      + ' #f7f8fa',
+    backdropSize: 'auto, auto, auto',
+    particleScene: 'gridDrift',
+    motionPreset: 'quiet',
+  },
+  // 复古像素：暗紫底 + 品红/电光青 + 像素扫描线
   pixel: {
     background: '#0d0221',
     foreground: '#f8f2ff',
@@ -52,10 +92,12 @@ export const THEMES = {
       + ' repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 4px),'
       + ' #0d0221',
     backdropSize: 'auto, auto, auto, auto',
+    particleScene: 'gridDrift',
+    motionPreset: 'standard',
   },
 }
 
-/** 主题 id 列表（AC-4.1） */
+/** 主题 id 列表（AC-14.1） */
 export const THEME_IDS = Object.keys(THEMES)
 
 /** 校验主题 id 是否合法（AC-4.3） */
